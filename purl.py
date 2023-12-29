@@ -1,32 +1,34 @@
 import argparse
 from urllib.parse import urlparse, urlsplit
 import http.client
+import sys
 
-def process_request(request_type, host, url, verbose=False):
+def process_request(request_type, host, url, outfile, verbose=False):
     
     # establish connection
     conn = http.client.HTTPConnection(host=host)
-
-    if request_type == "GET":
         
-        conn.request(request_type, url=url, headers={"Host": host, "Connection": 'close'})
-        response = conn.getresponse()
+    conn.request(request_type, url=url, headers={"Host": host, "Connection": 'close'})
+    response = conn.getresponse()
 
-        if verbose:
-            print(f"< {response.status, response.reason}")
-            print(f"< {response.msg}")
-        
-        # print response
-        print(f"{response.read().decode('ASCII')}")
+    if verbose:
+        print(f"< {response.status, response.reason}", file=outfile)
+        for k, v in response.msg.items():
+            print(f"< {k}: {v}", file=outfile)
+        print("", file=outfile)
+    
+    # print response
+    print(f"{response.read().decode('ASCII')}", file=outfile)
 
 def parse_command(args):
     # print("URL: ", args.url)
     # parse url
-    parsed_url = urlparse(url=args.url)
+    # args.url[0] empty might cause error - handle error --- todo
+    parsed_url = urlparse(url=args.url[0])
 
     if args.verbose:
         # request type
-        verbose_message = "> " + "GET" #args.request_type if args.request_type else "GET"
+        verbose_message = "> " + args.request_type
         verbose_message += " "
 
         # url path to process
@@ -35,21 +37,22 @@ def parse_command(args):
 
         # protocol
         verbose_message += parsed_url.scheme.upper()
-        print(verbose_message)
-        print("> Host:", parsed_url.netloc.split(':')[0])
-        print("> User-Agent: purl")
-        print(">")
+
+        print(verbose_message, file=args.output_file)
+        print(f"> Host: {parsed_url.netloc.split(':')[0]}", file=args.output_file)
+        print("> User-Agent: purl\n>\n", file=args.output_file)
     
-    process_request("GET", host= parsed_url.netloc.split(':')[0], url=parsed_url.path, verbose=args.verbose)
-    print("----")
+    process_request(args.request_type, host= parsed_url.netloc.split(':')[0], url=parsed_url.path, outfile=args.output_file, verbose=args.verbose, )
+    print("---Done---")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="purl", description="curl in python")
     
-    parser.add_argument('url', action='store')
-    parser.add_argument('-v', '--verbose', action='store_const', const=1, help='display verbose response')
-    # parser.add_argument('-x', '--request_type', action='store', default='GET', help='request type to be made')
+    parser.add_argument('url', nargs=argparse.REMAINDER, action='store')
+    parser.add_argument('-v', '--verbose', action='store_true', help='display verbose response')
+    parser.add_argument('-x', '--request_type', action='store', default='GET', help='request type to be made, default request type is GET')
+    parser.add_argument('-o', '--output_file', nargs='?', type=argparse.FileType('w'), default=sys.stdout, help="write output to a file; writes to system out by default")
     
     args = parser.parse_args()
 
