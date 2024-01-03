@@ -1,14 +1,15 @@
 import argparse
-from urllib.parse import urlparse, urlsplit
+from urllib.parse import urlsplit
 import http.client
 import sys
+from exceptions import URLRequired
 
-def process_request(request_type, host, url, outfile, verbose=False):
+def process_request(request_type, host, path, outfile, verbose=False):
     
     # establish connection
     conn = http.client.HTTPConnection(host=host)
         
-    conn.request(request_type, url=url, headers={"Host": host, "Connection": 'close'})
+    conn.request(method=request_type, url=path, headers={"Host": host, "Connection": 'close'})
     response = conn.getresponse()
 
     if verbose:
@@ -21,10 +22,11 @@ def process_request(request_type, host, url, outfile, verbose=False):
     print(f"{response.read().decode('ASCII')}", file=outfile)
 
 def parse_command(args):
-    # print("URL: ", args.url)
-    # parse url
     # args.url[0] empty might cause error - handle error --- todo
-    parsed_url = urlparse(url=args.url[0])
+    if args.url:
+        parsed_url = urlsplit(url=args.url[0])
+    else:
+        raise URLRequired("A valid URL is required to make a request.")
 
     if args.verbose:
         # request type
@@ -42,7 +44,13 @@ def parse_command(args):
         print(f"> Host: {parsed_url.netloc.split(':')[0]}", file=args.output_file)
         print("> User-Agent: purl\n>\n", file=args.output_file)
     
-    process_request(args.request_type, host= parsed_url.netloc.split(':')[0], url=parsed_url.path, outfile=args.output_file, verbose=args.verbose, )
+    process_request(args.request_type, 
+                    host= parsed_url.netloc, 
+                    path=parsed_url.path, 
+                    outfile=args.output_file, 
+                    verbose=args.verbose
+                    )
+    
     print("---Done---")
 
 
